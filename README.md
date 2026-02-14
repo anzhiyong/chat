@@ -58,3 +58,7 @@ cmake --build server/build -j 8
 
 ## 协议文档
 - `server/PROTOCOL.md`
+
+图片示例：
+- <img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/d8819a2a-b67b-4681-bb6a-cb975a63f985" />
+
