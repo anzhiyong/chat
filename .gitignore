@@ -1,0 +1,17 @@
+﻿# Qt/Creator local files
+.qtcreator/
+*.user
+
+# Build output
+build/
+cmake-build-*/
+
+# Qt generated files
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
