@@ -49,6 +49,7 @@ public:
     void sendRemoveFriend(const QString &friendName);
     void sendListFriends();
     void sendSessionList(const QString &userId);
+    void sendHistoryPull(const QString &peerId, int limit = 50);
 
 signals:
     // 网络状态。
@@ -64,6 +65,7 @@ signals:
     void friendRequestReceived(const QString &requestId, const QString &from, const QString &remark);
     void friendRequestResult(const QString &requestId, bool accepted, const QString &from, const QString &to);
     void sessionListReceived(const QJsonArray &sessions);
+    void historyReceived(const QString &peerId, const QJsonArray &history);
     void authLoginResult(bool ok, const QString &errorText, const QString &userId);
     void authRegisterResult(bool ok, const QString &errorText);
 

@@ -13,6 +13,8 @@
 class FriendRegistry
 {
 public:
+    FriendRegistry();
+
     bool addFriend(const QString &a, const QString &b, QString *errorText = nullptr);
     bool removeFriend(const QString &a, const QString &b, QString *errorText = nullptr);
 
@@ -20,5 +22,9 @@ public:
     QStringList friendsOf(const QString &user) const;
 
 private:
+    void loadFromDisk();
+    void saveToDisk() const;
+
+    QString m_filePath;
     QHash<QString, QSet<QString>> m_friendMap;
 };

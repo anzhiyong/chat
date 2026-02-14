@@ -17,6 +17,7 @@ class LeftBar : public QWidget
 public:
     explicit LeftBar(QWidget *parent = nullptr);
     ~LeftBar() override;
+    void setCurrentUserName(const QString &userName);
 
 signals:
     void navigationChanged(const QString &section);

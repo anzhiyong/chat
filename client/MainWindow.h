@@ -27,13 +27,21 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
+    struct PrivateMessage {
+        QString sender;
+        QString text;
+        bool outgoing = false;
+    };
+
     Ui::MainWindow *ui = nullptr;
     LeftBar *m_leftBar = nullptr;
     SessionPanel *m_sessionPanel = nullptr;
     ChatPanel *m_chatPanel = nullptr;
     ChatClient *m_client = nullptr;
     QString m_currentPeer;
-    QMap<QString, QStringList> m_privateHistory;
+    QString m_currentSessionType = "direct";
+    QString m_currentSessionId;
+    QMap<QString, QList<PrivateMessage>> m_privateHistory;
 
     bool m_dragging = false;
     QPoint m_dragOffset;

@@ -9,6 +9,9 @@
 #include <QPainterPath>
 #include <QPixmap>
 #include <QPushButton>
+#include <QTextBlockFormat>
+#include <QTextCharFormat>
+#include <QTextCursor>
 
 ChatPanel::ChatPanel(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPanel)
 {
@@ -49,17 +52,38 @@ void ChatPanel::showChatState(const QString &title)
     ui->titleLabel->setText(title);
 }
 
-void ChatPanel::setMessageViewText(const QString &text)
+void ChatPanel::clearMessages()
 {
-    ui->chatView->setPlainText(text);
+    ui->chatView->clear();
 }
 
-void ChatPanel::appendMessageLine(const QString &line)
+void ChatPanel::appendMessage(const QString &sender, const QString &text, bool outgoing)
 {
-    if (!ui->chatView->toPlainText().isEmpty()) {
-        ui->chatView->append("");
-    }
-    ui->chatView->append(line);
+    QTextCursor cursor = ui->chatView->textCursor();
+    cursor.movePosition(QTextCursor::End);
+
+    QTextBlockFormat blockFormat;
+    blockFormat.setAlignment(outgoing ? Qt::AlignRight : Qt::AlignLeft);
+
+    QTextCharFormat nameFormat;
+    nameFormat.setForeground(QColor("#888888"));
+    nameFormat.setFont(QFont("Microsoft YaHei", 9));
+
+    QTextCharFormat textFormat;
+    textFormat.setForeground(QColor("#1F1F1F"));
+    textFormat.setFont(QFont("Microsoft YaHei", 11));
+
+    cursor.insertBlock(blockFormat, nameFormat);
+    cursor.insertText(sender);
+
+    cursor.insertBlock(blockFormat, textFormat);
+    cursor.insertText(text);
+
+    // 增加空行间距，阅读更清晰。
+    cursor.insertBlock();
+
+    ui->chatView->setTextCursor(cursor);
+    ui->chatView->ensureCursorVisible();
 }
 
 void ChatPanel::setupStyles()

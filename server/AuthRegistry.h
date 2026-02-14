@@ -13,11 +13,16 @@
 class AuthRegistry
 {
 public:
+    AuthRegistry();
+
     bool registerAccount(const QString &account, const QString &password, QString *errorText = nullptr);
     bool validateLogin(const QString &account, const QString &password, QString *errorText = nullptr) const;
     bool hasAccount(const QString &account) const;
 
 private:
+    void loadFromDisk();
+    void saveToDisk() const;
+
+    QString m_filePath;
     QHash<QString, QString> m_passwordByAccount;
 };
-

@@ -182,6 +182,15 @@ void ChatClient::sendSessionList(const QString &userId)
     sendJson(obj);
 }
 
+void ChatClient::sendHistoryPull(const QString &peerId, int limit)
+{
+    QJsonObject obj;
+    obj["type"] = "history_pull";
+    obj["peer_id"] = peerId.trimmed();
+    obj["limit"] = limit;
+    sendJson(obj);
+}
+
 void ChatClient::onReadyRead()
 {
     m_receiveBuffer.append(m_socket->readAll());
@@ -293,6 +302,11 @@ void ChatClient::processLine(const QByteArray &line)
         } else {
             emit systemMessage(QString("获取会话列表失败：%1").arg(obj.value("error").toString()));
         }
+        return;
+    }
+
+    if (type == "history_result") {
+        emit historyReceived(obj.value("peer_id").toString(), obj.value("history").toArray());
         return;
     }
 

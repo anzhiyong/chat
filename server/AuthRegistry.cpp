@@ -1,5 +1,19 @@
 #include "AuthRegistry.h"
 
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+
+AuthRegistry::AuthRegistry()
+{
+    const QString baseDir = QDir(QCoreApplication::applicationDirPath()).filePath("data");
+    QDir().mkpath(baseDir);
+    m_filePath = QDir(baseDir).filePath("accounts.json");
+    loadFromDisk();
+}
+
 bool AuthRegistry::registerAccount(const QString &account, const QString &password, QString *errorText)
 {
     const QString acc = account.trimmed();
@@ -27,6 +41,7 @@ bool AuthRegistry::registerAccount(const QString &account, const QString &passwo
     }
 
     m_passwordByAccount.insert(acc, pwd);
+    saveToDisk();
     return true;
 }
 
@@ -55,3 +70,44 @@ bool AuthRegistry::hasAccount(const QString &account) const
     return m_passwordByAccount.contains(account.trimmed());
 }
 
+void AuthRegistry::loadFromDisk()
+{
+    m_passwordByAccount.clear();
+
+    QFile file(m_filePath);
+    if (!file.exists()) {
+        return;
+    }
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return;
+    }
+
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject()) {
+        return;
+    }
+
+    const QJsonObject root = doc.object();
+    const QJsonObject accounts = root.value("accounts").toObject();
+    for (auto it = accounts.constBegin(); it != accounts.constEnd(); ++it) {
+        m_passwordByAccount.insert(it.key(), it.value().toString());
+    }
+}
+
+void AuthRegistry::saveToDisk() const
+{
+    QJsonObject accounts;
+    for (auto it = m_passwordByAccount.constBegin(); it != m_passwordByAccount.constEnd(); ++it) {
+        accounts.insert(it.key(), it.value());
+    }
+
+    QJsonObject root;
+    root.insert("accounts", accounts);
+
+    QFile file(m_filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        return;
+    }
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+}

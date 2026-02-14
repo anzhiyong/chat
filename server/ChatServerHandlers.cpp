@@ -4,6 +4,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QTcpSocket>
+#include <QtGlobal>
 
 /*
  * ChatServerHandlers.cpp（业务处理模块）
@@ -135,12 +136,13 @@ void ChatServer::handleSessionList(QTcpSocket *socket, const QJsonObject &obj)
 
     const QStringList friends = m_friends.friendsOf(effectiveUser);
     for (const QString &friendId : friends) {
+        const QPair<QString, qint64> summary = m_messages.lastPrivateSummary(effectiveUser, friendId);
         QJsonObject item;
         item["session_type"] = "direct";
         item["session_id"] = friendId;
         item["title"] = m_userNicknames.value(friendId, friendId);
-        item["last_text"] = "";
-        item["last_ts"] = 0;
+        item["last_text"] = summary.first;
+        item["last_ts"] = static_cast<double>(summary.second);
         item["unread"] = 0;
         sessions.append(item);
     }
@@ -162,6 +164,32 @@ void ChatServer::handleSessionList(QTcpSocket *socket, const QJsonObject &obj)
     out["request_id"] = requestId;
     out["ok"] = true;
     out["sessions"] = sessions;
+    sendJson(socket, out);
+}
+
+void ChatServer::handleHistoryPull(QTcpSocket *socket, const QJsonObject &obj)
+{
+    const QString peerId = obj.value("peer_id").toString().trimmed();
+    const int limit = obj.value("limit").toInt(50);
+    const QString self = m_clients.value(socket).name;
+
+    if (self.isEmpty()) {
+        sendSystem(socket, "请先登录后再拉取历史消息");
+        return;
+    }
+    if (peerId.isEmpty()) {
+        sendSystem(socket, "history_pull 缺少 peer_id");
+        return;
+    }
+    if (!m_friends.isFriend(self, peerId)) {
+        sendSystem(socket, QString("你和 %1 不是好友，无法查看会话历史").arg(peerId));
+        return;
+    }
+
+    QJsonObject out;
+    out["type"] = "history_result";
+    out["peer_id"] = peerId;
+    out["history"] = m_messages.loadPrivateHistory(self, peerId, qMax(1, limit));
     sendJson(socket, out);
 }
 
@@ -218,13 +246,16 @@ void ChatServer::handlePrivate(QTcpSocket *socket, const QJsonObject &obj)
         sendSystem(socket, QString("你和 %1 不是好友，无法私聊").arg(to));
         return;
     }
+    const qint64 ts = QDateTime::currentSecsSinceEpoch();
+    m_messages.appendPrivate(sender, to, text, ts);
 
     QJsonObject out;
     out["type"] = "private";
     out["name"] = sender;
     out["to"] = to;
     out["text"] = text;
-    out["time"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    out["ts"] = static_cast<double>(ts);
+    out["time"] = QDateTime::fromSecsSinceEpoch(ts).toString(Qt::ISODate);
 
     sendJson(m_userToSocket.value(to), out);
     sendSystem(socket, QString("私聊消息已发送给 %1").arg(to));

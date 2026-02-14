@@ -8,6 +8,8 @@
 
 #include <QEvent>
 #include <QGraphicsDropShadowEffect>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QVBoxLayout>
@@ -61,12 +63,37 @@ MainWindow::MainWindow(ChatClient *client, QWidget *parent)
         }
     });
 
-    connect(m_sessionPanel, &SessionPanel::conversationSelected, this, [this](const QString &title) {
+    connect(m_sessionPanel, &SessionPanel::conversationSelected, this,
+            [this](const QString &sessionType, const QString &sessionId, const QString &title) {
+        m_currentSessionType = sessionType;
+        m_currentSessionId = sessionId;
         m_currentPeer = title;
         m_chatPanel->showChatState(title);
-
-        const QStringList lines = m_privateHistory.value(m_currentPeer);
-        m_chatPanel->setMessageViewText(lines.join("\n\n"));
+        m_chatPanel->clearMessages();
+        const QString historyKey = (sessionType == "group") ? QString("group:%1").arg(sessionId) : sessionId;
+        const QList<PrivateMessage> history = m_privateHistory.value(historyKey);
+        for (const PrivateMessage &msg : history) {
+            m_chatPanel->appendMessage(msg.sender, msg.text, msg.outgoing);
+        }
+        if (m_client && sessionType == "direct") {
+            m_client->sendHistoryPull(m_currentSessionId, 100);
+        }
+    });
+    connect(m_sessionPanel, &SessionPanel::createGroupRequested, this, [this](const QString &groupName) {
+        if (!m_client) {
+            return;
+        }
+        m_client->sendCreateGroup(groupName);
+        // 创建后刷新会话列表，尽快把新群显示出来。
+        m_client->sendSessionList(m_client->userName());
+    });
+    connect(m_sessionPanel, &SessionPanel::joinGroupRequested, this, [this](const QString &groupName) {
+        if (!m_client) {
+            return;
+        }
+        m_client->sendJoinGroup(groupName);
+        // 加群后刷新会话列表，B 才能看到该群会话。
+        m_client->sendSessionList(m_client->userName());
     });
     connect(m_sessionPanel, &SessionPanel::addFriendRequested, this, [this](const QString &account) {
         if (m_client) {
@@ -76,6 +103,7 @@ MainWindow::MainWindow(ChatClient *client, QWidget *parent)
 
     // 登录后服务端返回真实会话列表时，刷新中间会话栏。
     if (m_client) {
+        m_leftBar->setCurrentUserName(m_client->userName());
         connect(m_client, &ChatClient::sessionListReceived, m_sessionPanel, &SessionPanel::setSessionsFromServer);
         connect(m_client, &ChatClient::friendListUpdated, m_sessionPanel, &SessionPanel::setFriendsFromServer);
         connect(m_client, &ChatClient::friendRequestReceived, this,
@@ -94,40 +122,85 @@ MainWindow::MainWindow(ChatClient *client, QWidget *parent)
                 });
         connect(m_client, &ChatClient::chatMessage, this,
                 [this](const QString &sender, const QString &text, const QString &mode, const QString &target) {
-                    if (mode != "private") {
-                        return;
-                    }
-
                     const QString me = m_client->userName();
-                    const bool outgoingEcho = (sender == me);
-                    const QString peer = outgoingEcho ? target : sender;
-                    if (peer.isEmpty()) {
+                    QString historyKey;
+                    if (mode == "private") {
+                        const bool outgoingEcho = (sender == me);
+                        const QString peer = outgoingEcho ? target : sender;
+                        if (peer.isEmpty()) {
+                            return;
+                        }
+                        historyKey = peer;
+                    } else if (mode == "group") {
+                        if (target.isEmpty()) {
+                            return;
+                        }
+                        historyKey = QString("group:%1").arg(target);
+                    } else {
                         return;
                     }
 
-                    const QString line = QString("%1: %2").arg(sender, text);
-                    m_privateHistory[peer].push_back(line);
+                    PrivateMessage msg;
+                    msg.sender = sender;
+                    msg.text = text;
+                    msg.outgoing = (sender == me);
+                    m_privateHistory[historyKey].push_back(msg);
 
-                    if (m_currentPeer == peer) {
-                        m_chatPanel->appendMessageLine(line);
+                    const bool isCurrentGroup = (m_currentSessionType == "group" &&
+                                                 historyKey == QString("group:%1").arg(m_currentSessionId));
+                    const bool isCurrentDirect = (m_currentSessionType != "group" && historyKey == m_currentSessionId);
+                    if (isCurrentGroup || isCurrentDirect) {
+                        m_chatPanel->appendMessage(msg.sender, msg.text, msg.outgoing);
                     }
                 });
+        connect(m_client, &ChatClient::historyReceived, this, [this](const QString &peerId, const QJsonArray &history) {
+            QList<PrivateMessage> parsed;
+            const QString me = m_client->userName();
+            for (const QJsonValue &v : history) {
+                if (!v.isObject()) {
+                    continue;
+                }
+                const QJsonObject obj = v.toObject();
+                PrivateMessage msg;
+                msg.sender = obj.value("from").toString();
+                msg.text = obj.value("text").toString();
+                msg.outgoing = (msg.sender == me);
+                parsed.push_back(msg);
+            }
+            m_privateHistory[peerId] = parsed;
+
+            if (m_currentPeer == peerId) {
+                m_chatPanel->clearMessages();
+                for (const PrivateMessage &msg : parsed) {
+                    m_chatPanel->appendMessage(msg.sender, msg.text, msg.outgoing);
+                }
+            }
+        });
     }
 
     connect(m_chatPanel, &ChatPanel::messageSendRequested, this, [this](const QString &text) {
         if (!m_client) {
             return;
         }
-        if (m_currentPeer.isEmpty()) {
+        if (m_currentSessionId.isEmpty()) {
             QMessageBox::information(this, "提示", "请先在会话/好友列表中选择一个聊天对象。");
             return;
         }
 
         const QString me = m_client->userName();
-        const QString line = QString("%1: %2").arg(me, text);
-        m_privateHistory[m_currentPeer].push_back(line);
-        m_chatPanel->appendMessageLine(line);
-        m_client->sendPrivate(m_currentPeer, text);
+        if (m_currentSessionType == "group") {
+            // 群聊由服务端统一广播回显，避免“本地先加一条 + 回显再加一条”导致重复。
+            m_client->sendGroup(m_currentSessionId, text);
+        } else {
+            PrivateMessage msg;
+            msg.sender = me;
+            msg.text = text;
+            msg.outgoing = true;
+            const QString historyKey = m_currentSessionId;
+            m_privateHistory[historyKey].push_back(msg);
+            m_chatPanel->appendMessage(msg.sender, msg.text, msg.outgoing);
+            m_client->sendPrivate(m_currentSessionId, text);
+        }
     });
 
     connect(ui->minButton, &QToolButton::clicked, this, &MainWindow::showMinimized);

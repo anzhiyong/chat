@@ -24,8 +24,10 @@ public:
     void setFriendsFromServer(const QStringList &friends);
 
 signals:
-    void conversationSelected(const QString &title);
+    void conversationSelected(const QString &sessionType, const QString &sessionId, const QString &title);
     void addFriendRequested(const QString &account);
+    void createGroupRequested(const QString &groupName);
+    void joinGroupRequested(const QString &groupName);
 
 private:
     void populateDemoSessions();

@@ -6,6 +6,7 @@
 #include "FriendRegistry.h"
 #include "GroupRegistry.h"
 #include "AuthRegistry.h"
+#include "MessageStore.h"
 
 class QHostAddress;
 class QJsonObject;
@@ -44,6 +45,7 @@ private:
     void handleAuthRegister(QTcpSocket *socket, const QJsonObject &obj);
     void handleAuthLogin(QTcpSocket *socket, const QJsonObject &obj);
     void handleSessionList(QTcpSocket *socket, const QJsonObject &obj);
+    void handleHistoryPull(QTcpSocket *socket, const QJsonObject &obj);
 
     void handleJoin(QTcpSocket *socket, const QJsonObject &obj);
     void handlePrivate(QTcpSocket *socket, const QJsonObject &obj);
@@ -78,4 +80,5 @@ private:
     GroupRegistry m_groups;
     FriendRegistry m_friends;
     AuthRegistry m_auth;
+    MessageStore m_messages;
 };

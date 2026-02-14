@@ -41,14 +41,15 @@ SessionPanel::SessionPanel(QWidget *parent) : QWidget(parent), ui(new Ui::Sessio
         if (!item) {
             return;
         }
-        emit conversationSelected(item->data(Qt::UserRole).toString());
+        emit conversationSelected(item->data(Qt::UserRole + 2).toString(), item->data(Qt::UserRole + 3).toString(),
+                                 item->data(Qt::UserRole).toString());
     });
 
     connect(ui->friendList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
         if (!item) {
             return;
         }
-        emit conversationSelected(item->text());
+        emit conversationSelected("direct", item->text(), item->text());
     });
 
     // 新手提示：只要搜索框内容变化，就立即刷新当前页面列表显示。
@@ -66,11 +67,47 @@ SessionPanel::SessionPanel(QWidget *parent) : QWidget(parent), ui(new Ui::Sessio
             "QMenu::item:selected { background:#F5F5F5; }");
 
         QAction *groupAction = menu.addAction("发起群聊");
+        QAction *joinGroupAction = menu.addAction("加入群聊");
         QAction *addFriendAction = menu.addAction("添加朋友");
 
         const QPoint pos = ui->addButton->mapToGlobal(QPoint(ui->addButton->width() - 8, ui->addButton->height() + 6));
         QAction *selected = menu.exec(pos);
         if (selected == groupAction) {
+            QInputDialog dialog(this);
+            dialog.setWindowTitle("发起群聊");
+            dialog.setLabelText("请输入群名称：");
+            dialog.setTextEchoMode(QLineEdit::Normal);
+            dialog.setStyleSheet(
+                "QInputDialog { background:#FFFFFF; }"
+                "QLabel { color:#222222; font: 12px 'Microsoft YaHei'; }"
+                "QLineEdit { background:#FFFFFF; color:#222222; border:1px solid #DCDCDC; border-radius:4px; padding:4px; }"
+                "QPushButton { min-width:72px; min-height:28px; border:1px solid #D0D0D0; border-radius:4px; background:#F7F7F7; color:#222222; }"
+                "QPushButton:hover { background:#EFEFEF; }");
+
+            const bool ok = (dialog.exec() == QDialog::Accepted);
+            const QString groupName = dialog.textValue().trimmed();
+            if (ok && !groupName.isEmpty()) {
+                emit createGroupRequested(groupName);
+            }
+            return;
+        }
+        if (selected == joinGroupAction) {
+            QInputDialog dialog(this);
+            dialog.setWindowTitle("加入群聊");
+            dialog.setLabelText("请输入群名称：");
+            dialog.setTextEchoMode(QLineEdit::Normal);
+            dialog.setStyleSheet(
+                "QInputDialog { background:#FFFFFF; }"
+                "QLabel { color:#222222; font: 12px 'Microsoft YaHei'; }"
+                "QLineEdit { background:#FFFFFF; color:#222222; border:1px solid #DCDCDC; border-radius:4px; padding:4px; }"
+                "QPushButton { min-width:72px; min-height:28px; border:1px solid #D0D0D0; border-radius:4px; background:#F7F7F7; color:#222222; }"
+                "QPushButton:hover { background:#EFEFEF; }");
+
+            const bool ok = (dialog.exec() == QDialog::Accepted);
+            const QString groupName = dialog.textValue().trimmed();
+            if (ok && !groupName.isEmpty()) {
+                emit joinGroupRequested(groupName);
+            }
             return;
         }
         if (selected == addFriendAction) {
@@ -127,6 +164,8 @@ void SessionPanel::setSessionsFromServer(const QJsonArray &sessions)
 
         const QString title = obj.value("title").toString();
         const QString summary = obj.value("last_text").toString();
+        const QString sessionType = obj.value("session_type").toString("direct");
+        const QString sessionId = obj.value("session_id").toString(title);
         const qint64 ts = static_cast<qint64>(obj.value("last_ts").toDouble(0));
         const QString timeText = ts > 0 ? QDateTime::fromSecsSinceEpoch(ts).toString("MM-dd hh:mm") : QString();
 
@@ -134,6 +173,8 @@ void SessionPanel::setSessionsFromServer(const QJsonArray &sessions)
         item->setSizeHint(QSize(0, 72));
         item->setData(Qt::UserRole, title);
         item->setData(Qt::UserRole + 1, summary);
+        item->setData(Qt::UserRole + 2, sessionType);
+        item->setData(Qt::UserRole + 3, sessionId);
 
         auto *widget = new SessionItemWidget(ui->sessionList);
         widget->setData(title, timeText, summary);
@@ -182,6 +223,8 @@ void SessionPanel::populateDemoSessions()
         item->setSizeHint(QSize(0, 72));
         item->setData(Qt::UserRole, d.name);
         item->setData(Qt::UserRole + 1, d.summary);
+        item->setData(Qt::UserRole + 2, "direct");
+        item->setData(Qt::UserRole + 3, d.name);
 
         auto *widget = new SessionItemWidget(ui->sessionList);
         widget->setData(d.name, d.time, d.summary);

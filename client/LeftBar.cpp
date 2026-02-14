@@ -49,7 +49,7 @@ LeftBar::LeftBar(QWidget *parent) : QWidget(parent), ui(new Ui::LeftBar), m_navG
 
     setStyleSheet(
         "QWidget#LeftBar { background-color: #2E2E2E; }"
-        "QLabel#avatarLabel { background: #8F8F8F; border-radius: 20px; }"
+        "QLabel#avatarLabel { background: #8F8F8F; border-radius: 20px; color:#FFFFFF; font: 600 10px 'Microsoft YaHei'; }"
         "QFrame#bottomSeparator { background: #3A3A3A; min-height: 1px; max-height: 1px; }"
         "QToolButton { color: #BFBFBF; border: none; border-radius: 6px; padding: 0; }"
         "QToolButton:hover { background: rgba(255,255,255,0.06); }"
@@ -62,4 +62,18 @@ LeftBar::LeftBar(QWidget *parent) : QWidget(parent), ui(new Ui::LeftBar), m_navG
 LeftBar::~LeftBar()
 {
     delete ui;
+}
+
+void LeftBar::setCurrentUserName(const QString &userName)
+{
+    const QString name = userName.trimmed();
+    if (name.isEmpty()) {
+        ui->avatarLabel->clear();
+        ui->avatarLabel->setToolTip(QString());
+        return;
+    }
+
+    const QString shortText = name.size() > 2 ? name.left(2) : name;
+    ui->avatarLabel->setText(shortText);
+    ui->avatarLabel->setToolTip(name);
 }

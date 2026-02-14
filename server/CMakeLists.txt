@@ -18,6 +18,8 @@ add_executable(QtChatServer
     ChatServer.h
     ChatServer.cpp
     ChatServerHandlers.cpp
+    MessageStore.h
+    MessageStore.cpp
 )
 
 target_link_libraries(QtChatServer PRIVATE Qt6::Core Qt6::Network)

@@ -125,6 +125,10 @@ void ChatServer::processLine(QTcpSocket *socket, const QByteArray &line)
         handleSessionList(socket, obj);
         return;
     }
+    if (type == "history_pull") {
+        handleHistoryPull(socket, obj);
+        return;
+    }
 
     if (type == "join") {
         handleJoin(socket, obj);

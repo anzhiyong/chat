@@ -18,8 +18,8 @@ public:
 
     void showEmptyState();
     void showChatState(const QString &title);
-    void setMessageViewText(const QString &text);
-    void appendMessageLine(const QString &line);
+    void clearMessages();
+    void appendMessage(const QString &sender, const QString &text, bool outgoing);
 
 signals:
     void messageSendRequested(const QString &text);
