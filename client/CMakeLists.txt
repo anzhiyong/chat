@@ -12,6 +12,9 @@ add_executable(QtChatClient
     main.cpp
     ChatClient.h
     ChatClient.cpp
+    LoginDialog.h
+    LoginDialog.cpp
+    LoginDialog.ui
     MainWindow.h
     MainWindow.cpp
     MainWindow.ui

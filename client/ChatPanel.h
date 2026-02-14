@@ -18,6 +18,11 @@ public:
 
     void showEmptyState();
     void showChatState(const QString &title);
+    void setMessageViewText(const QString &text);
+    void appendMessageLine(const QString &line);
+
+signals:
+    void messageSendRequested(const QString &text);
 
 private:
     void setupStyles();

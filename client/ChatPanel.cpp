@@ -4,9 +4,11 @@
 
 #include <QColor>
 #include <QFont>
+#include <QLineEdit>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
+#include <QPushButton>
 
 ChatPanel::ChatPanel(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPanel)
 {
@@ -15,6 +17,17 @@ ChatPanel::ChatPanel(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPanel)
     setupStyles();
     setupEmptyIcon();
     showEmptyState();
+
+    auto triggerSend = [this]() {
+        const QString text = ui->messageEdit->text().trimmed();
+        if (text.isEmpty()) {
+            return;
+        }
+        ui->messageEdit->clear();
+        emit messageSendRequested(text);
+    };
+    connect(ui->sendButton, &QPushButton::clicked, this, triggerSend);
+    connect(ui->messageEdit, &QLineEdit::returnPressed, this, triggerSend);
 }
 
 ChatPanel::~ChatPanel()
@@ -34,6 +47,19 @@ void ChatPanel::showChatState(const QString &title)
     ui->headerFrame->setVisible(true);
     ui->stackedWidget->setCurrentWidget(ui->chatPage);
     ui->titleLabel->setText(title);
+}
+
+void ChatPanel::setMessageViewText(const QString &text)
+{
+    ui->chatView->setPlainText(text);
+}
+
+void ChatPanel::appendMessageLine(const QString &line)
+{
+    if (!ui->chatView->toPlainText().isEmpty()) {
+        ui->chatView->append("");
+    }
+    ui->chatView->append(line);
 }
 
 void ChatPanel::setupStyles()

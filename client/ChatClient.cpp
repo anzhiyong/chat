@@ -40,6 +40,30 @@ bool ChatClient::isConnected() const
     return m_socket->state() == QAbstractSocket::ConnectedState;
 }
 
+void ChatClient::authLogin(const QString &account, const QString &password, const QString &requestId)
+{
+    QJsonObject obj;
+    obj["type"] = "auth_login";
+    obj["account"] = account.trimmed();
+    obj["password"] = password;
+    if (!requestId.isEmpty()) {
+        obj["request_id"] = requestId;
+    }
+    sendJson(obj);
+}
+
+void ChatClient::authRegister(const QString &account, const QString &password, const QString &requestId)
+{
+    QJsonObject obj;
+    obj["type"] = "auth_register";
+    obj["account"] = account.trimmed();
+    obj["password"] = password;
+    if (!requestId.isEmpty()) {
+        obj["request_id"] = requestId;
+    }
+    sendJson(obj);
+}
+
 void ChatClient::sendJoin()
 {
     QJsonObject obj;
@@ -106,6 +130,24 @@ void ChatClient::sendSearchUser(const QString &keyword)
     sendJson(obj);
 }
 
+void ChatClient::sendFriendRequest(const QString &to, const QString &remark)
+{
+    QJsonObject obj;
+    obj["type"] = "friend_request_send";
+    obj["to"] = to.trimmed();
+    obj["remark"] = remark.trimmed();
+    sendJson(obj);
+}
+
+void ChatClient::sendFriendRequestReply(const QString &requestId, bool accept)
+{
+    QJsonObject obj;
+    obj["type"] = "friend_request_reply";
+    obj["request_id"] = requestId;
+    obj["accept"] = accept;
+    sendJson(obj);
+}
+
 void ChatClient::sendAddFriend(const QString &friendName)
 {
     QJsonObject obj;
@@ -129,6 +171,14 @@ void ChatClient::sendListFriends()
     QJsonObject obj;
     obj["type"] = "list_friends";
     obj["name"] = m_userName;
+    sendJson(obj);
+}
+
+void ChatClient::sendSessionList(const QString &userId)
+{
+    QJsonObject obj;
+    obj["type"] = "session_list";
+    obj["user_id"] = userId.trimmed();
     sendJson(obj);
 }
 
@@ -222,6 +272,46 @@ void ChatClient::processLine(const QByteArray &line)
             friends.push_back(v.toString());
         }
         emit friendListUpdated(friends);
+        return;
+    }
+
+    if (type == "friend_request_received") {
+        emit friendRequestReceived(obj.value("request_id").toString(), obj.value("from").toString(),
+                                   obj.value("remark").toString());
+        return;
+    }
+
+    if (type == "friend_request_result") {
+        emit friendRequestResult(obj.value("request_id").toString(), obj.value("accepted").toBool(false),
+                                 obj.value("from").toString(), obj.value("to").toString());
+        return;
+    }
+
+    if (type == "session_list_result") {
+        if (obj.value("ok").toBool(true)) {
+            emit sessionListReceived(obj.value("sessions").toArray());
+        } else {
+            emit systemMessage(QString("获取会话列表失败：%1").arg(obj.value("error").toString()));
+        }
+        return;
+    }
+
+    if (type == "auth_login_result") {
+        const bool ok = obj.value("ok").toBool(false);
+        const QString error = obj.value("error").toString();
+        const QString userId = obj.value("user_id").toString();
+        if (ok && !userId.isEmpty()) {
+            // 登录成功后统一把用户名设置为服务端确认后的 user_id。
+            m_userName = userId;
+        }
+        emit authLoginResult(ok, error, userId);
+        return;
+    }
+
+    if (type == "auth_register_result") {
+        const bool ok = obj.value("ok").toBool(false);
+        const QString error = obj.value("error").toString();
+        emit authRegisterResult(ok, error);
         return;
     }
 

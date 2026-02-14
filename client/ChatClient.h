@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <QByteArray>
+#include <QJsonArray>
 #include <QObject>
 
 class QJsonObject;
@@ -31,6 +32,8 @@ public:
     void connectToServer(const QString &host, quint16 port);
     void disconnectFromServer();
     bool isConnected() const;
+    void authLogin(const QString &account, const QString &password, const QString &requestId = QString());
+    void authRegister(const QString &account, const QString &password, const QString &requestId = QString());
 
     // ===== 协议发送接口 =====
     void sendJoin();
@@ -40,9 +43,12 @@ public:
     void sendJoinGroup(const QString &group);
     void sendLeaveGroup(const QString &group);
     void sendSearchUser(const QString &keyword);
+    void sendFriendRequest(const QString &to, const QString &remark = QString());
+    void sendFriendRequestReply(const QString &requestId, bool accept);
     void sendAddFriend(const QString &friendName);
     void sendRemoveFriend(const QString &friendName);
     void sendListFriends();
+    void sendSessionList(const QString &userId);
 
 signals:
     // 网络状态。
@@ -55,6 +61,11 @@ signals:
     void chatMessage(const QString &sender, const QString &text, const QString &mode, const QString &target);
     void friendSearchResult(const QStringList &users);
     void friendListUpdated(const QStringList &friends);
+    void friendRequestReceived(const QString &requestId, const QString &from, const QString &remark);
+    void friendRequestResult(const QString &requestId, bool accepted, const QString &from, const QString &to);
+    void sessionListReceived(const QJsonArray &sessions);
+    void authLoginResult(bool ok, const QString &errorText, const QString &userId);
+    void authRegisterResult(bool ok, const QString &errorText);
 
 private slots:
     void onReadyRead();

@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <QJsonArray>
+#include <QStringList>
 #include <QWidget>
 
 QT_BEGIN_NAMESPACE
@@ -18,13 +20,17 @@ public:
 
     void showChatPage();
     void showFriendPage();
+    void setSessionsFromServer(const QJsonArray &sessions);
+    void setFriendsFromServer(const QStringList &friends);
 
 signals:
     void conversationSelected(const QString &title);
+    void addFriendRequested(const QString &account);
 
 private:
     void populateDemoSessions();
     void populateDemoFriends();
+    void applySearchFilter(const QString &keyword);
 
     Ui::SessionPanel *ui = nullptr;
 };

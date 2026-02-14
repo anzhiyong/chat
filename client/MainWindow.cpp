@@ -1,5 +1,6 @@
 ﻿#include "MainWindow.h"
 
+#include "ChatClient.h"
 #include "ChatPanel.h"
 #include "LeftBar.h"
 #include "SessionPanel.h"
@@ -7,11 +8,12 @@
 
 #include <QEvent>
 #include <QGraphicsDropShadowEffect>
+#include <QMessageBox>
 #include <QMouseEvent>
 #include <QVBoxLayout>
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow)
+MainWindow::MainWindow(ChatClient *client, QWidget *parent)
+    : QMainWindow(parent), ui(new Ui::MainWindow), m_client(client)
 {
     ui->setupUi(this);
 
@@ -60,7 +62,72 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     connect(m_sessionPanel, &SessionPanel::conversationSelected, this, [this](const QString &title) {
+        m_currentPeer = title;
         m_chatPanel->showChatState(title);
+
+        const QStringList lines = m_privateHistory.value(m_currentPeer);
+        m_chatPanel->setMessageViewText(lines.join("\n\n"));
+    });
+    connect(m_sessionPanel, &SessionPanel::addFriendRequested, this, [this](const QString &account) {
+        if (m_client) {
+            m_client->sendFriendRequest(account, "你好，我想添加你为好友");
+        }
+    });
+
+    // 登录后服务端返回真实会话列表时，刷新中间会话栏。
+    if (m_client) {
+        connect(m_client, &ChatClient::sessionListReceived, m_sessionPanel, &SessionPanel::setSessionsFromServer);
+        connect(m_client, &ChatClient::friendListUpdated, m_sessionPanel, &SessionPanel::setFriendsFromServer);
+        connect(m_client, &ChatClient::friendRequestReceived, this,
+                [this](const QString &requestId, const QString &from, const QString &remark) {
+                    const QString text =
+                        QString("%1 向你发送了好友申请。\n备注：%2\n是否同意？").arg(from, remark.isEmpty() ? "（无）" : remark);
+                    const auto ans = QMessageBox::question(this, "好友申请", text, QMessageBox::Yes | QMessageBox::No,
+                                                           QMessageBox::Yes);
+                    m_client->sendFriendRequestReply(requestId, ans == QMessageBox::Yes);
+                });
+        connect(m_client, &ChatClient::friendRequestResult, this,
+                [this](const QString &, bool accepted, const QString &, const QString &to) {
+                    QMessageBox::information(this, "好友申请结果",
+                                             accepted ? QString("%1 已通过你的好友申请").arg(to)
+                                                      : QString("%1 拒绝了你的好友申请").arg(to));
+                });
+        connect(m_client, &ChatClient::chatMessage, this,
+                [this](const QString &sender, const QString &text, const QString &mode, const QString &target) {
+                    if (mode != "private") {
+                        return;
+                    }
+
+                    const QString me = m_client->userName();
+                    const bool outgoingEcho = (sender == me);
+                    const QString peer = outgoingEcho ? target : sender;
+                    if (peer.isEmpty()) {
+                        return;
+                    }
+
+                    const QString line = QString("%1: %2").arg(sender, text);
+                    m_privateHistory[peer].push_back(line);
+
+                    if (m_currentPeer == peer) {
+                        m_chatPanel->appendMessageLine(line);
+                    }
+                });
+    }
+
+    connect(m_chatPanel, &ChatPanel::messageSendRequested, this, [this](const QString &text) {
+        if (!m_client) {
+            return;
+        }
+        if (m_currentPeer.isEmpty()) {
+            QMessageBox::information(this, "提示", "请先在会话/好友列表中选择一个聊天对象。");
+            return;
+        }
+
+        const QString me = m_client->userName();
+        const QString line = QString("%1: %2").arg(me, text);
+        m_privateHistory[m_currentPeer].push_back(line);
+        m_chatPanel->appendMessageLine(line);
+        m_client->sendPrivate(m_currentPeer, text);
     });
 
     connect(ui->minButton, &QToolButton::clicked, this, &MainWindow::showMinimized);
