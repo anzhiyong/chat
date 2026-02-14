@@ -1,0 +1,5 @@
+D:/Code/qt-chat-client/build/CMakeFiles/QtChatClient.dir
+D:/Code/qt-chat-client/build/CMakeFiles/edit_cache.dir
+D:/Code/qt-chat-client/build/CMakeFiles/rebuild_cache.dir
+D:/Code/qt-chat-client/build/CMakeFiles/QtChatClient_autogen_timestamp_deps.dir
+D:/Code/qt-chat-client/build/CMakeFiles/QtChatClient_autogen.dir
