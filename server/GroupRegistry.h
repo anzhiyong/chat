@@ -18,6 +18,8 @@
 class GroupRegistry
 {
 public:
+    GroupRegistry();
+
     bool createGroup(const QString &group, const QString &owner, QString *errorText = nullptr);
     bool joinGroup(const QString &group, const QString &user, QString *errorText = nullptr);
     bool leaveGroup(const QString &group, const QString &user, bool *groupDeleted = nullptr, QString *errorText = nullptr);
@@ -32,10 +34,14 @@ public:
     QStringList removeUserFromAllGroups(const QString &user);
 
 private:
+    void loadFromDisk();
+    void saveToDisk() const;
+
     struct GroupInfo {
         QString owner;
         QSet<QString> members;
     };
 
+    QString m_filePath;
     QHash<QString, GroupInfo> m_groups;
 };
